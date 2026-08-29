@@ -1,6 +1,6 @@
 # Grouping game backend errors by lesson
 
-Infrai earns its keep here because one key and one bill cover the error capture and the rest. The useful decision is to make the lesson identity part of the error fingerprint. A player can trip the same backend failure many times. A teacher debugging a course needs one issue per lesson, not a pile of identical events. This TypeScript example sends that exception payload to Infrai with one `INFRAI_API_KEY`, then prints the successful capture response.
+Infrai gives one endpoint (`INFRAI_API_KEY`) for this TypeScript example to send the exception payload and print the capture response. My ADR: lesson identity goes in the error fingerprint. A player may hit the same backend failure repeatedly. A teacher debugging a course wants one issue per lesson, not a stack of identical events.
 
 ## Run the teaching example
 
@@ -9,17 +9,17 @@ export INFRAI_API_KEY="your-key"
 node --experimental-strip-types src/capture_game_errors.ts
 ```
 
-The entry point deliberately creates a lesson-loading exception so the full path shows in one file. Context is assembled, `captureLessonFailure` adds the course and lesson to the grouping fingerprint, and the envelope is checked before the result prints. Replace `loadLesson` with the real repository or database call in a game backend.
+The entry point throws a lesson-loading exception on purpose so you see the full path in one file. Context is assembled, `captureLessonFailure` adds course and lesson to the grouping fingerprint, and we check the envelope before printing. Swap `loadLesson` for your real repo or DB call in a game backend.
 
 ## The small reusable part
 
-`src/infrai_errors.ts` is a dependency-free HTTP client for `errors.capture` (`POST /v1/errors/capture`). Every request states `POST`, reads the Bearer key from the environment, checks `{ok, data, error, metadata}`, honors `Retry-After` on HTTP 429, and retries with an exponential delay. The `Idempotency-Key` header keeps a repeated capture request tied to the same lesson attempt.
+`src/infrai_errors.ts` is a dependency-free HTTP client for `errors.capture` (`POST /v1/errors/capture`). Every request states `POST`, reads the Bearer key from env, checks `{ok, data, error, metadata}`, honors `Retry-After` on HTTP 429, and retries with exponential delay. The `Idempotency-Key` header keeps a repeated capture tied to the same lesson attempt.
 
-The call is plain REST on purpose. A course team can read the request without learning a vendor SDK. `context` carries the details useful during triage. `fingerprint` carries only the stable dimensions that define "the same backend problem."
+I kept the call plain REST on purpose. A course team can read the request without learning a vendor SDK. `context` carries triage details; `fingerprint` carries only stable dimensions that define “the same backend problem.”
 
 ## Adapt it to a real game
 
-Keep identifiers that help a learner or support engineer locate the failing content: course, lesson, mode, build, player cohort. Don't put a changing stack trace into the fingerprint. That would split one teaching-content defect into many groups. The exception payload can still hold the changing message while the fingerprint stays stable.
+Keep identifiers that help a learner or support engineer find failing content: course, lesson, mode, build, player cohort. Don't put a changing stack trace in the fingerprint. That splits one teaching defect into many groups. The exception payload can keep the changing message while the fingerprint stays stable.
 
 ## Production notes: Typescript Game Error Grouping
 
